@@ -15,7 +15,7 @@ public class Controller<M: Model, R: Renderer> where M.ItemType == R.ItemType {
     }
     
     public func willDisplay() {
-        model.begin()
+        model.next()
         
         modelObserving = model.state.sink(receiveValue: update(with:))
     }

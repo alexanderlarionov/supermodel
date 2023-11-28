@@ -11,20 +11,21 @@ extension String: Identifiable {
 }
 
 fileprivate class StringRangesDataProvider: DataProvider {
-    func retrieve(count: Int, offset: Int, completion: @escaping ([String]) -> ()) {
+    typealias StringRangesDataProviderResult = Result<[String], Error>
+    func retrieve(count: Int, offset: Int, completion: @escaping (StringRangesDataProviderResult) -> ()) {
         DispatchQueue.main.async {
             completion(self.result(count: count, offset: offset))
         }
     }
     
-    func retrieve(count: Int, offset: Int) async -> [String] {
+    func retrieve(count: Int, offset: Int) async -> StringRangesDataProviderResult {
         await Task {
             result(count: count, offset: offset)
         }.value
     }
     
-    private func result(count: Int, offset: Int) -> [String] {
-        [offset...offset + count].map { "\($0)" }
+    private func result(count: Int, offset: Int) -> StringRangesDataProviderResult {
+        .success([offset...offset + count].map { "\($0)" })
     }
 }
 

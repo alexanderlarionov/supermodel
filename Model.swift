@@ -7,16 +7,16 @@ public enum ModelState<ItemType: Identifiable>{
     case empty
     case loading
     case ready(items: [ItemType])
-    case error(error: Error)
+    case error(_: Error)
 }
 
 public protocol Model {
     associatedtype ItemType: Identifiable
     
     var state: any Publisher<ModelState<ItemType>, Never> { get }
-    func begin()
-    func reset()
+    
     func next()
+    func reset()
     func handle(action: ModelAction<ItemType>, completion:@escaping (ModelActionResult) -> ())
 }
 
@@ -34,9 +34,10 @@ public enum ModelActionResult {
 
 public protocol DataProvider {
     associatedtype OutputType
+    typealias DataProviderResult = Result<[OutputType], Error>
     
-    func retrieve(count: Int, offset: Int, completion: @escaping ([OutputType]) -> ())
-    func retrieve(count: Int, offset: Int) async -> [OutputType]
+    func retrieve(count: Int, offset: Int, completion: @escaping (DataProviderResult) -> ())
+    func retrieve(count: Int, offset: Int) async -> DataProviderResult
 }
 
 /// --------------------------------------------------
@@ -60,20 +61,23 @@ public class ModelImpl<T: Identifiable, DP: DataProvider>: Model where DP.Output
     public init(dataProvider: DP) {
         self.dataProvider = dataProvider
     }
-    
-    public func begin() {
-        dataProvider.retrieve(count: loadCount, offset: page * loadCount) { [weak self] data in
-            self?.pub.send(ModelState.ready(items: data))
-        }
-    }
 
     public func reset() {
-        begin()
+        page = 0
+        next()
     }
 
     public func next() {
-        dataProvider.retrieve(count: 10, offset: 0) { [weak self] data in
-            self?.pub.send(ModelState.ready(items: data))
+        pub.send(.loading)
+        dataProvider.retrieve(count: 10, offset: page * loadCount) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let data):
+                self.page += 1
+                self.pub.send(.ready(items: data))
+            case .failure(let error):
+                self.pub.send(.error(error))
+            }
         }
     }
     
